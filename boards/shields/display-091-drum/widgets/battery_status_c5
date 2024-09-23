@@ -1,0 +1,203 @@
+/*
+ * Copyright (c) 2024 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <zephyr/kernel.h>
+#include <zephyr/bluetooth/services/bas.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+
+#include <zmk/display.h>
+#include <zmk/display/widgets/battery_status.h>
+#include <zmk/usb.h>
+#include <zmk/ble.h>
+#include <zmk/events/usb_conn_state_changed.h>
+#include <zmk/events/keycode_state_changed.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/battery_state_changed.h>
+
+#include "battery_status.h"
+
+static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
+
+LV_IMG_DECLARE(battery00_icon);
+LV_IMG_DECLARE(battery10_icon);
+LV_IMG_DECLARE(battery20_icon);
+LV_IMG_DECLARE(battery30_icon);
+LV_IMG_DECLARE(battery40_icon);
+LV_IMG_DECLARE(battery50_icon);
+LV_IMG_DECLARE(battery60_icon);
+LV_IMG_DECLARE(battery70_icon);
+LV_IMG_DECLARE(battery80_icon);
+LV_IMG_DECLARE(battery90_icon);
+LV_IMG_DECLARE(batterycharge_icon);
+LV_IMG_DECLARE(disconnect_icon);
+
+const lv_img_dsc_t *batterys_level[] = {
+    &battery00_icon,
+    &battery10_icon,
+    &battery20_icon,
+    &battery30_icon,
+    &battery40_icon,
+    &battery50_icon,
+    &battery60_icon,
+    &battery70_icon,
+    &battery80_icon,
+    &battery90_icon,
+    &batterycharge_icon,
+    &disconnect_icon,
+};
+
+enum battery_symbol {
+    battery_symbol_battery_level,
+    battery_symbol_battery_label
+};
+
+struct battery_status_state {
+    uint8_t source[ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1];
+    uint8_t level[ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1];
+    bool usb_present[ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1];
+};
+
+struct battery_widget_object {
+    lv_obj_t *battery_label;
+    lv_obj_t *battery_symbol;
+};
+
+struct battery_widget_object battery_widget_objects[ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1];
+
+static void set_battery_symbol(lv_obj_t *widget, struct battery_status_state state) {
+    for (int i =0; i< ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1; i++) {  // Iterate backwards
+        uint8_t level = state.level[i];
+         // lv_obj_t *label = battery_widget_objects[i].battery_label;
+        // char text[5] = {};
+
+        // if (level > 0) {
+        //     snprintf(text, sizeof(text), "%3u%%", level);
+        // }
+
+        // lv_label_set_text(label, text);
+
+        lv_obj_t *symbol = battery_widget_objects[i].battery_symbol;
+        if (!state.usb_present[i]) {
+            if (level > 95) {
+                lv_img_set_src(symbol, batterys_level[9]);
+            } else if (level > 85) {
+                lv_img_set_src(symbol, batterys_level[8]);
+            } else if (level > 75) {
+                lv_img_set_src(symbol, batterys_level[7]);
+            } else if (level > 65) {
+                lv_img_set_src(symbol, batterys_level[6]);
+            } else if (level > 55) {
+                lv_img_set_src(symbol, batterys_level[5]);
+            } else if (level > 45) {
+                lv_img_set_src(symbol, batterys_level[4]);
+            } else if (level > 35) {
+                lv_img_set_src(symbol, batterys_level[3]);
+            } else if (level > 25) {
+                lv_img_set_src(symbol, batterys_level[2]);
+            } else if (level > 15) {
+                lv_img_set_src(symbol, batterys_level[1]);
+            } else {
+                lv_img_set_src(symbol, batterys_level[0]);
+            }
+        } else {
+            lv_img_set_src(symbol, batterys_level[10]);
+        }
+    }
+}
+
+void battery_status_update_cb(struct battery_status_state state) {
+    struct zmk_widget_battery_status *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_battery_symbol(widget->obj, state); }
+}
+
+// static struct battery_status_state battery_status_get_state(const zmk_event_t *eh) {
+//     const struct zmk_peripheral_battery_state_changed *ev = as_zmk_peripheral_battery_state_changed(eh);
+//     battery_state.level[ev->source] = ev->state_of_charge;
+//     return battery_state;
+// }
+
+static struct battery_status_state peripheral_battery_status_get_state(const zmk_event_t *eh) {
+    const struct zmk_peripheral_battery_state_changed *ev = as_zmk_peripheral_battery_state_changed(eh);
+//     battery_status_state.level[ev->source+1] = ev->state_of_charge;
+//     battery_status_state.source[ev->source+1] =ev->source + 1;
+// #if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
+//         battery_status_state.usb_present[ev->source+1] = zmk_usb_is_powered();
+// #endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
+//     return battery_status_state;
+
+    return (struct battery_status_state) {
+        .level[ev->source+1] = ev->state_of_charge;
+        .source[ev->source+1] =ev->source + 1;
+#if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
+        .usb_present[ev->source] = zmk_usb_is_powered();
+#endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
+    };
+}
+
+static struct battery_status_state central_battery_status_get_state(const zmk_event_t *eh) {
+    const struct zmk_battery_state_changed *ev = as_zmk_battery_state_changed(eh);
+//     battery_status_state.source[0] = 0,
+//     battery_status_state.source[0] = (ev != NULL) ? ev->state_of_charge : zmk_battery_state_of_charge(),
+// #if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
+//     battery_status_state.usb_present[0] = zmk_usb_is_powered(),
+// #endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
+//     return battery_status_state;
+    return (struct battery_status_state) {
+        .level[0] =  (ev != NULL) ? ev->state_of_charge : zmk_battery_state_of_charge(),
+        .source[0] =0;
+#if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
+        .usb_present[0] = zmk_usb_is_powered();
+#endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
+    };
+}
+
+static struct battery_status_state battery_status_get_state(const zmk_event_t *eh) { 
+    if (as_zmk_peripheral_battery_state_changed(eh) != NULL) {
+        return peripheral_battery_status_get_state(eh);
+    } else {
+        return central_battery_status_get_state(eh);
+    }
+}
+
+ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_status, struct battery_status_state, 
+                            battery_status_update_cb, battery_status_get_state)
+
+ZMK_SUBSCRIPTION(widget_battery_status, zmk_peripheral_battery_state_changed);
+
+int zmk_widget_peripheral_battery_status_init(struct zmk_widget_peripheral_battery_status *widget, lv_obj_t *parent) {
+    widget->obj = lv_obj_create(parent);
+
+    lv_obj_set_size(widget->obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+    // 主电池
+    // lv_obj_t *battery_level = lv_img_create(widget->obj);
+    // lv_obj_align(battery_level, LV_ALIGN_TOP_LEFT, 0, 0);
+    // lv_img_set_src(battery_level, batterys_level[9]);
+    battery_widget_objects[0].battery_symbol = lv_img_create(widget->obj);
+    lv_obj_align(battery_widget_objects[0].battery_symbol, LV_ALIGN_TOP_LEFT, 0,2);
+
+    // 副电池
+    for (int i =1; i< ZMK_SPLIT_BLE_PERIPHERAL_COUNT+1; i++) {  // Iterate backwards
+        // battery_widget_objects[i].battery_label = lv_label_create(widget->obj);
+        // lv_obj_align(battery_widget_objects[i].battery_label, LV_ALIGN_LEFT_MID, initial_x_offset - i * 35, 0);
+
+        // battery_widget_objects[i].battery_label = lv_label_create(widget->obj);
+        // lv_obj_align(battery_widget_objects[i].battery_label, LV_ALIGN_TOP_LEFT, (i-1)*14+2, 2);
+        battery_widget_objects[i].battery_symbol = lv_img_create(widget->obj);
+        lv_obj_align(battery_widget_objects[i].battery_symbol, LV_ALIGN_TOP_LEFT, (i)*14+2, 2);
+    }
+
+    sys_slist_append(&widgets, &widget->node);
+
+    widget_battery_status_init();
+    return 0;
+}
+
+lv_obj_t *zmk_widget_peripheral_battery_status_obj(struct zmk_widget_peripheral_battery_status *widget) {
+    return widget->obj;
+}

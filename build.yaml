@@ -1,0 +1,65 @@
+# This file generates the GitHub Actions matrix.
+# For simple board + shield combinations, add them to the top level board and
+# shield arrays, for more control, add individual board + shield combinations
+# to the `include` property. You can also use the `cmake-args` property to
+# pass flags to the build command and `artifact-name` to assign a name to
+# distinguish build outputs from each other:
+#
+# board: [ "nice_nano_v2" ]
+# shield: [ "corne_left", "corne_right" ]
+# include:
+#   - board: bdn9_rev2
+#   - board: nice_nano_v2
+#     shield: reviung41
+#   - board: nice_nano_v2
+#     shield: corne_left
+#     cmake-args: -DCONFIG_ZMK_USB_LOGGING=y
+#     artifact-name: corne_left_with_logging
+#
+---
+include:
+
+# 三、【有dongle，使用display】， 在 dongle.conf 进行打开，键盘不使用display
+  # #【方案21】  dongle：有（display:系统自带-横向(128*64))，display：无
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_dongle
+  # # 带display使用
+  #   artifact-name: ky89_dongle_dongle_31_DongleWithDefault
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_left
+  #   artifact-name: ky89_dongle_31_Left
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_right
+  #   artifact-name: ky89_dongle_31_Right
+
+  # 【方案32】  dongle：有（display:猫咪-横向(128*64))，display：无,除了关闭conf外
+  - board: nice_nano_v2
+    shield: ky89_dongle_dongle display_130_cat
+    artifact-name: ky89_dongle_32_DongleWithCat
+  - board: nice_nano_v2
+    shield: ky89_dongle_left
+    cmake-args: -DCONFIG_ZMK_SPLIT_ROLE_CENTRAL=n
+    artifact-name: ky89_dongle_32_Left
+  - board: nice_nano_v2
+    shield: ky89_dongle_right
+    artifact-name: ky89_dongle_32_Right
+  - board: nice_nano_v2
+    shield: ky89_dongle_left  display_091_drum
+    cmake-args: -DCONFIG_ZMK_DISPLAY=y
+    artifact-name: ky89_dongle_32_Left_central
+  - board: nice_nano_v2
+    shield: settings_reset
+    artifact-name: ky89_dongle_32_settings_reset
+
+  # # 【方案33】  dongle：有（display:猫咪-横向(128*64))，display：敲鼓-竖向(128*32) By Kawvin
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_dongle display_130_cat
+  #   artifact-name: ky89_dongle_33_DongleWithCat
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_left display_091_drum
+  #   artifact-name: ky89_dongle_33_LeftWithDrum
+  # - board: nice_nano_v2
+  #   shield: ky89_dongle_right
+  #   artifact-name: ky89_dongle_33_Right
+  # - board: nice_nano_v2
+  #   shield: settings_reset

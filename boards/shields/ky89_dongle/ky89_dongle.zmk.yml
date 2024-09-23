@@ -1,0 +1,16 @@
+file_format: "1"
+id: ky89
+name: ky89
+type: shield
+url: https://github.com/kawvin/zmk-config
+requires: [pro_micro]
+exposes: [i2c_oled]
+features:
+  - keys
+  - display
+  - encoder
+  - underglow
+siblings:
+  - ky89_dongle_dongle
+  - ky89_dongle_left
+  - ky89_dongle_right
